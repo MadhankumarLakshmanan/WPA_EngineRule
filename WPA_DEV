@@ -1036,7 +1036,7 @@ namespace WPA_Eligibility_Rules
         {
             tracing.Trace($"PopulateRule9Tokens Method is called");
             tokens["medicalbillsamount"] = CalculateMedicalExpense(svc, tracing, caseId);
-            //tokens["medicalbillexists"] = HasDocumentByCategorySubcategory(svc, tracing, caseId, null, DocumentCategory.Expenses, DocumentSubCategory.Expense);
+            tokens["medicalbillexists"] = HasDocumentByCategorySubcategory(svc, tracing, caseId, null, DocumentCategory.Expenses, DocumentSubCategory.Expense);
 
             tracing.Trace($"Rule9 Tokens => medicalbillsamount={tokens["medicalbillsamount"]}");
             tracing.Trace($"PopulateRule9Tokens Method is end");
