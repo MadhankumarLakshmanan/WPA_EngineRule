@@ -63,6 +63,9 @@ namespace WPA_Eligibility_Rules
         private const int VERIFIED_NO = 568020000;
         private const int VERIFIED_YES = 568020001;
 
+        //Case Already receiving State CCS benefits field
+        private const string FLD_Case_StateCCSFlag = "mcg_alreadyreceivingstateccsbenefits";
+
         private const string FLD_BLI_Benefit = "mcg_servicebenefitnames";
         private const string FLD_BLI_RecipientContact = "mcg_recipientcontact";
 
@@ -183,6 +186,13 @@ namespace WPA_Eligibility_Rules
         public enum CaseIncomeSubCatergory
         {
             ChildSupport = 861450045
+        }
+
+        //Enum Case Entity State CCS choice column
+        public enum CaseStateCCS
+        {
+            Yes = 568020000,
+            NO = 568020001
         }
 
         //Static Relationship lookup
@@ -353,7 +363,14 @@ namespace WPA_Eligibility_Rules
                         if (!HasDocumentByCategorySubcategory(service, tracing, caseRef.Id, primaryContactRef.Id, "Income", "Tax Returns"))
                             validationFailures.Add("Most recent income tax return document is missing.");
                     }
-                }
+                    // Has Already receiving the State CCS check
+                    var stateCcsMessage = HasAlreadyReceivingStateCCS(service, tracing, caseRef.Id);
+                    if (!string.IsNullOrWhiteSpace(stateCcsMessage))
+                    {
+                            validationFailures.Add(stateCcsMessage);
+                    }
+            }
+
 
                 // -------- Stop if validations failed --------
                 if (validationFailures.Count > 0)
@@ -585,6 +602,43 @@ namespace WPA_Eligibility_Rules
                 tracing.Trace("ValidateChildCitizenshipFromBirthCertificate ERROR: " + ex);
                 return "Unable to validate Child Citizenship due to an internal error.";
             }
+        }
+
+        private static string HasAlreadyReceivingStateCCS(IOrganizationService svc, ITracingService tracing, Guid caseId)
+        {
+            var qe = new QueryExpression(ENT_Case)
+            {
+                ColumnSet = new ColumnSet(FLD_Case_StateCCSFlag, "statecode"),
+                TopCount = 1
+            };
+
+            qe.Criteria.AddCondition(FLD_CASE_IncidentId, ConditionOperator.Equal, caseId);
+            qe.Criteria.AddCondition("statecode", ConditionOperator.Equal, 0);
+
+            var entity = svc.RetrieveMultiple(qe).Entities.FirstOrDefault();
+
+            if (entity == null)
+            {
+                tracing.Trace("Case not found");
+                return string.Empty;
+            }
+
+            if (!entity.Attributes.Contains(FLD_Case_StateCCSFlag))
+            {
+                tracing.Trace("CaseStateCCS is NULL");
+                return "Please fill Already receiving State CCS benefits question in case form";
+            }
+
+            var stateCcs = entity.GetAttributeValue<OptionSetValue>(FLD_Case_StateCCSFlag)?.Value;
+
+            if (stateCcs == (int)CaseStateCCS.Yes)
+            {
+                tracing.Trace("CaseStateCCS = Yes");
+                return "You are already receiving the benefit from the State CCS";
+            }
+
+            tracing.Trace("CaseStateCCS is present but not Yes");
+            return string.Empty;
         }
 
         private static bool HasDocumentByCategorySubcategory(IOrganizationService svc, ITracingService tracing, Guid caseId, Guid? contactId, string category, string subCategory)
